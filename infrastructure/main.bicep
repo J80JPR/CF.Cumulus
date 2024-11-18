@@ -1,21 +1,30 @@
+//  Main infrastructure deployment template for data platform
+//  Deploys core services including:
+//  - Key Vault, Storage, Data Factory, Databricks, Function Apps, SQL Server
+//  - Configures role assignments and dependencies between services
+
 targetScope = 'subscription'
 
-param location string = 'southcentralus'
-param envName string
-param domainName string = 'cfc'
-param orgName string = 'demo'
-param uniqueIdentifier string = '01'
-param nameStorage string = 'dls'
+//Parameters for environment configuration
+// * These parameters control resource naming and deployment options
+// * Required for consistent resource naming across environments
 
-param functionStorageName string = 'fst'
+param location string = 'southcentralus' //Azure region for deployment
+param envName string //Environment name (dev/test/prod)
+param domainName string = 'cfc' //Domain prefix for naming convention - cfc is for Cumulus 
+param orgName string = 'demo' //Organization name for naming convention
+param uniqueIdentifier string = '01' //Unique suffix for resource names
+
+param nameStorage string = 'dls' //Storage account name prefix
+param functionStorageName string = 'fst' //Function app storage name prefix
 
 param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
 
+//Parameters for optional settings
 param firstDeployment bool = false
-
 param deployWorkers bool = true
 
-
+// Mapping of Azure regions to short codes for naming conventions
 var locationShortCodes = {
   uksouth: 'uks'
   ukwest: 'ukw'
@@ -39,15 +48,25 @@ var locationShortCodes = {
 
 var locationShortCode = locationShortCodes[location]
 
+// Resource naming convention variables
 var namePrefix = '${domainName}${orgName}${envName}'
 var nameSuffix = '${locationShortCode}${uniqueIdentifier}'
 var rgName = '${namePrefix}rg${nameSuffix}'
 
+// Create main resource group for all deployed resources
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: rgName
   location: location
 }
 
+/* Service Deployment Sequence
+ * Modules are deployed in order of dependencies:
+ * 1. Key Vault - Required for secrets
+ * 2. App Insights & Log Analytics - Monitoring
+ * 3. Storage Accounts - Data lake and function storage
+ * 4. Compute Services - ADF, Databricks, Functions
+ * 5. Database - SQL Server
+ */
 module keyVaultDeploy 'modules/keyvault.template.bicep' = {
   scope: rg
   name: 'keyvault${deploymentTimestamp}'
@@ -227,7 +246,12 @@ module virtualMachineDeploy 'modules/virtualmachine.template.bicep' = {
   ]
 }
 
-
+/* RBAC Configuration
+ * Configures service-to-service permissions:
+ * - Data Factory access to storage, functions, and other services
+ * - Function App access to required resources
+ * Note: firstDeployment parameter controls initial RBAC setup
+ */
 module dataFactoryOrchestratorRoleAssignmentsDeploy 'modules/roleassignments/datafactory.template.bicep' = {
   scope: rg
   name: 'adf-orchestration-roleassignments${deploymentTimestamp}'
@@ -251,7 +275,7 @@ module dataFactoryOrchestratorRoleAssignmentsDeploy 'modules/roleassignments/dat
 module dataFactoryWorkersRoleAssignmentsDeploy 'modules/roleassignments/datafactory.template.bicep' = if (deployWorkers) {
   scope: rg
   name: 'adf-workers-roleassignments${deploymentTimestamp}'
-  params:{
+  params: {
     nameFactory: 'workers'
     namePrefix: namePrefix
     nameSuffix: nameSuffix
@@ -267,8 +291,6 @@ module dataFactoryWorkersRoleAssignmentsDeploy 'modules/roleassignments/datafact
     keyVaultDeploy
   ]
 }
-
-
 
 module functionAppRoleAssignmentsDeploy 'modules/roleassignments/functionapp.template.bicep' = {
   scope: rg
