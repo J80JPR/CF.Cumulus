@@ -229,9 +229,9 @@ module databricksWorkspaceDeploy './modules/databricks.template.bicep' = {
     nameSuffix: nameSuffix
     skuTier: 'standard'
     managedResourceGroupName: '${namePrefix}rgm${nameSuffix}'
-    vnetName: networkingDeploy.outputs.vnetName
-    privateSubnetName: networkingDeploy.outputs.databricksPrivateSubnetName
-    publicSubnetName: networkingDeploy.outputs.databricksPublicSubnetName
+    // vnetName: networkingDeploy.outputs.vnetName
+    // privateSubnetName: networkingDeploy.outputs.databricksPrivateSubnetName
+    // publicSubnetName: networkingDeploy.outputs.databricksPublicSubnetName
   }
   dependsOn: [
     keyVaultDeploy

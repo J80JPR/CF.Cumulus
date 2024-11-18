@@ -5,37 +5,19 @@ param managedResourceGroupName string
   'standard'
   'premium'
 ])
-@description('The pricing tier of workspace')
+@description('')
 param skuTier string
+
+// @description('')
+// param tagValues object = {}
 
 param namePrefix string 
 param nameSuffix string 
 
-// Add VNET parameters
-param vnetName string
-param privateSubnetName string
-param publicSubnetName string
-
 var workspaceName = '${namePrefix}dbw${nameSuffix}'
+
 var ownerRoleDefId = '8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
 var managedIdentityName = '${workspaceName}Identity' 
-
-// Reference existing VNET
-resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: vnetName
-}
-
-// Reference existing subnets
-resource privateSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
-  parent: vnet
-  name: privateSubnetName
-}
-
-resource publicSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
-  parent: vnet
-  name: publicSubnetName
-}
-
 
 resource databricksWorkspace 'Microsoft.Databricks/workspaces@2024-05-01' = {
   name: workspaceName
@@ -43,19 +25,6 @@ resource databricksWorkspace 'Microsoft.Databricks/workspaces@2024-05-01' = {
   sku: { name: skuTier }
   properties:{
     managedResourceGroupId: subscriptionResourceId('Microsoft.Resources/resourceGroups', managedResourceGroupName)
-    parameters: {
-      customVirtualNetworkId: {
-        value: vnet.id
-      }
-      customPublicSubnetName: {
-        value: publicSubnetName
-      }
-      customPrivateSubnetName: {
-        value: privateSubnetName
-      }
-      enableNoPublicIp: {
-        value: true
-      }
   }
 }
 
