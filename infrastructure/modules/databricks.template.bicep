@@ -1,5 +1,5 @@
 param location string = resourceGroup().location
-
+param managedResourceGroupName string
 
 @allowed([
   'standard'
@@ -15,7 +15,6 @@ param namePrefix string
 param nameSuffix string 
 
 var workspaceName = '${namePrefix}dbw${nameSuffix}'
-var managedResourceGroupId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${workspaceName}-managed-rg'
 
 var ownerRoleDefId = '8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
 var managedIdentityName = '${workspaceName}Identity' 
@@ -25,7 +24,7 @@ resource databricksWorkspace 'Microsoft.Databricks/workspaces@2024-05-01' = {
   location: location
   sku: { name: skuTier }
   properties:{
-    managedResourceGroupId: managedResourceGroupId
+    managedResourceGroupId: subscriptionResourceId('Microsoft.Resources/resourceGroups', managedResourceGroupName)
   }
 }
 

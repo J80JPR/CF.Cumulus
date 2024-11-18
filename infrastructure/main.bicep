@@ -187,6 +187,7 @@ module databricksWorkspaceDeploy './modules/databricks.template.bicep' = {
     namePrefix: namePrefix
     nameSuffix: nameSuffix
     skuTier: 'standard'
+    managedResourceGroupName: '${namePrefix}rgm${nameSuffix}' 
   }
   dependsOn: [
     keyVaultDeploy
