@@ -3,5 +3,5 @@ using '../../main.bicep'
 // Global Parameters for all deployments
 param envName = 'dev'
 param firstDeployment = false
-param deployWorkers = true
+param deployWorkers = false
 

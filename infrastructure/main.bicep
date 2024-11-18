@@ -22,7 +22,7 @@ param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
 
 //Parameters for optional settings
 param firstDeployment bool = false
-param deployWorkers bool = true
+param deployWorkers bool = false
 
 // Mapping of Azure regions to short codes for naming conventions
 var locationShortCodes = {
