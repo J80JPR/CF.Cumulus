@@ -7,22 +7,22 @@ param envName string
 
 
 var name = '${namePrefix}${nameFactory}${nameSuffix}'
-// var repoConfig = {
-//   accountName: 'cfsource'
-//   collaborationBranch: 'main'
-//   projectName: 'CF.Cumulus'
-//   repositoryName: 'CF.Cumulus'
-//   rootFolder: '/src/azure.datafactory'
-//   type: 'FactoryVSTSConfiguration'
-//   tenantId: subscription().tenantId
-// }
 var repoConfig = {
   accountName: 'cfsource'
-  repositoryName: 'CF.Cumulus'
   collaborationBranch: 'main'
+  projectName: 'CF.Cumulus'
+  repositoryName: 'CF.Cumulus'
   rootFolder: '/src/azure.datafactory'
-  type: 'FactoryGitHubConfiguration'
+  type: 'FactoryVSTSConfiguration'
+  tenantId: subscription().tenantId
 }
+// var repoConfig = {
+//   accountName: 'cfsource'
+//   repositoryName: 'CF.Cumulus'
+//   collaborationBranch: 'main'
+//   rootFolder: '/src/azure.datafactory'
+//   type: 'FactoryGitHubConfiguration'
+// }
 
 resource dataFactory 'Microsoft.DataFactory/factories@2018-06-01' = {
   name: name
