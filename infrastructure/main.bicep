@@ -10,7 +10,7 @@ targetScope = 'subscription'
 // * Required for consistent resource naming across environments
 
 param location string = 'southcentralus' //Azure region for deployment
-param envName string //Environment name (dev/test/prod)
+param envName string = 'dev' //Environment name (dev/test/prod)
 param domainName string = 'cfc' //Domain prefix for naming convention - cfc is for Cumulus 
 param orgName string = 'demo' //Organization name for naming convention
 param uniqueIdentifier string = '01' //Unique suffix for resource names
@@ -67,6 +67,8 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
  * 4. Compute Services - ADF, Databricks, Functions
  * 5. Database - SQL Server
  */
+
+ //Deployments without dependencies
 module keyVaultDeploy 'modules/keyvault.template.bicep' = {
   scope: rg
   name: 'keyvault${deploymentTimestamp}'
@@ -77,6 +79,15 @@ module keyVaultDeploy 'modules/keyvault.template.bicep' = {
   }
 }
 
+module logAnalyticsDeploy 'modules/loganalytics.template.bicep' = {
+  scope: rg
+  name: 'log-analytics${deploymentTimestamp}'
+  params:{
+    envName: envName
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+  }
+}
 module appInsightsDeploy 'modules/applicationinsights.template.bicep' = {
   scope: rg
   name: 'app-insights${deploymentTimestamp}'
@@ -87,6 +98,7 @@ module appInsightsDeploy 'modules/applicationinsights.template.bicep' = {
   }
 }
 
+//Deployments with dependencies
 module storageAccountDeploy 'modules/storage.template.bicep' = {
   name: 'storageaccount${deploymentTimestamp}'
   scope: rg
@@ -123,9 +135,11 @@ module dataFactoryDeployOrchestrator 'modules/datafactory.template.bicep' = {
     namePrefix: namePrefix
     nameSuffix: nameSuffix
     envName: envName
+    logAnalyticsWorkspaceId: logAnalyticsDeploy.outputs.resourceId
   }
   dependsOn: [
     keyVaultDeploy
+    logAnalyticsDeploy
   ]
 }
 
@@ -137,21 +151,15 @@ module dataFactoryDeployWorkers 'modules/datafactory.template.bicep' = if (deplo
     namePrefix: namePrefix
     nameSuffix: nameSuffix
     envName: envName
+    logAnalyticsWorkspaceId: logAnalyticsDeploy.outputs.resourceId
   }
   dependsOn: [
     keyVaultDeploy
+    logAnalyticsDeploy
   ]
 }
 
-module logAnalyticsDeploy 'modules/loganalytics.template.bicep' = {
-  scope: rg
-  name: 'log-analytics${deploymentTimestamp}'
-  params:{
-    envName: envName
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-  }
-}
+
 
 module databricksWorkspaceDeploy 'modules/databricks.template.bicep' = {
   scope: rg
@@ -218,7 +226,7 @@ module databricksClusterDeploy 'modules/databrickscluster.template.bicep' = {
     location: location
     adb_workspace_url: databricksWorkspaceDeploy.outputs.databricks_workspaceUrl
     adb_workspace_id: databricksWorkspaceDeploy.outputs.databricks_workspace_id
-    adb_secret_scope_name: 'CumulusScope02'
+    adb_secret_scope_name: 'CumulusScope01'
     akv_id: keyVaultDeploy.outputs.keyVaultId
     akv_uri: keyVaultDeploy.outputs.keyVaultURI
     namePrefix: namePrefix
