@@ -13,7 +13,7 @@ param location string = 'uksouth' //Azure region for deployment
 param envName string = 'dev' //Environment name (dev/test/prod)
 param domainName string = 'cfc' //Domain prefix for naming convention - Cloud Formations Cumulus
 param orgName string = 'tum' //Organization name for naming convention
-param uniqueIdentifier string = '02' //Unique suffix for resource names
+param uniqueIdentifier string = '03' //Unique suffix for resource names
 
 param datalakeName string = 'dls' //Storage account name prefix
 param functionBlobName string = 'st' //Function app storage name prefix
@@ -60,6 +60,10 @@ var rgName = '${namePrefix}rg${nameSuffix}'
 //var databaseName string = 'Metadata' //SQL Database name
 var databaseName  = '${namePrefix}sqldb${nameSuffix}' //SQL Database name
 
+// Register Microsoft.AlertsManagement provider
+resource alertsManagementProvider 'Microsoft.Resources/providers@2024-03-01' = {
+  name: 'Microsoft.AlertsManagement'
+}
 
 // Create main resource group for all deployed resources
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
