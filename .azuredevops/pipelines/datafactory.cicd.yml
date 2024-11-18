@@ -64,7 +64,7 @@ stages:
 # DEPLOY TO Test Workers
 - stage: DeployToTestWorkers
   dependsOn: BuildDEVDataFactory
-  condition: succeeded()
+  condition: and(succeeded(), eq(variables['DeployWorkers'], 'true'))
   displayName: "Deploy To Test Workers"
   
   variables:
@@ -134,7 +134,7 @@ stages:
 # DEPLOY TO Prod Workers
 - stage: DeployToProdWorkers
   dependsOn: BuildDEVDataFactory
-  condition: succeeded()
+  condition: and(succeeded(), eq(variables['DeployWorkers'], 'true'))
   displayName: "Deploy To Prod Workers"
   
   variables:
