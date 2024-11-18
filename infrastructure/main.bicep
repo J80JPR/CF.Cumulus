@@ -13,7 +13,7 @@ param location string = 'uksouth' //Azure region for deployment
 param envName string = 'dev' //Environment name (dev/test/prod)
 param domainName string = 'cfc' //Domain prefix for naming convention - Cloud Formations Cumulus
 param orgName string = 'tum' //Organization name for naming convention
-param uniqueIdentifier string = '01' //Unique suffix for resource names
+param uniqueIdentifier string = '02' //Unique suffix for resource names
 
 param datalakeName string = 'dls' //Storage account name prefix
 param functionBlobName string = 'st' //Function app storage name prefix
@@ -77,6 +77,7 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
  */
 
  //Deployments without dependencies
+
 module keyVaultDeploy './modules/keyvault.template.bicep' = {
   scope: rg
   name: 'keyvault${deploymentTimestamp}'
@@ -101,6 +102,16 @@ module appInsightsDeploy './modules/applicationinsights.template.bicep' = {
   name: 'app-insights${deploymentTimestamp}'
   params:{
     envName: envName
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+  }
+}
+
+module networkingDeploy './modules/networking.template.bicep' = if (deployNetworking) {
+  scope: rg
+  name: 'networking${deploymentTimestamp}'
+  params: {
+    location: location
     namePrefix: namePrefix
     nameSuffix: nameSuffix
   }
@@ -216,15 +227,7 @@ module sqlServerDeploy './modules/sqlserver.template.bicep' = {
 }
 
 // Deploy all networking resources as a package
-module networkingDeploy './modules/networking.template.bicep' = if (deployNetworking) {
-  scope: rg
-  name: 'networking${deploymentTimestamp}'
-  params: {
-    location: location
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-  }
-}
+
 
 // Updated databricks deployment to use a VNET
 module databricksWorkspaceDeploy './modules/databricks.template.bicep' = if (deployADB) {
@@ -241,7 +244,7 @@ module databricksWorkspaceDeploy './modules/databricks.template.bicep' = if (dep
   }
   dependsOn: [
     keyVaultDeploy
-    networkingDeploy  // Add this dependency
+    deployNetworking ? networkingDeploy : null
   ]
 }
 
@@ -290,18 +293,19 @@ module dataFactoryOrchestratorRoleAssignmentsDeploy './modules/roleassignments/d
   scope: rg
   name: 'adf-orchestration-roleassignments${deploymentTimestamp}'
   params:{
-    nameFactory: 'factory'
+    nameFactory: deployWorkers ? 'factory' : 'adf' // if workers adf is being setup we call this one factory, otherwise we call it adf
     namePrefix: namePrefix
     nameSuffix: nameSuffix
     nameStorage: datalakeName
+    statusADB: deployADB
   }
   dependsOn: [
     dataFactoryDeployOrchestrator
     functionAppDeploy
     storageAccountDeploy
     sqlServerDeploy
-    databricksWorkspaceDeploy
     keyVaultDeploy
+    deployADB ? databricksWorkspaceDeploy : null
   ]
 }
 
@@ -313,14 +317,15 @@ module dataFactoryWorkersRoleAssignmentsDeploy './modules/roleassignments/datafa
     namePrefix: namePrefix
     nameSuffix: nameSuffix
     nameStorage: datalakeName
+    statusADB: deployADB
   }
   dependsOn: [
-    dataFactoryDeployWorkers
-    functionAppDeploy
+    keyVaultDeploy
     storageAccountDeploy
     sqlServerDeploy
-    databricksWorkspaceDeploy
-    keyVaultDeploy
+    functionAppDeploy
+    deployWorkers ? dataFactoryDeployWorkers : null
+    deployADB ? databricksWorkspaceDeploy : null
   ]
 }
 
@@ -331,14 +336,15 @@ module functionAppRoleAssignmentsDeploy './modules/roleassignments/functionapp.t
     namePrefix: namePrefix
     nameSuffix: nameSuffix
     firstDeployment: firstDeployment
+    deployWorkers: deployWorkers
   }
   dependsOn: [
-    dataFactoryDeployOrchestrator
-    dataFactoryDeployWorkers
-    functionAppDeploy
+    keyVaultDeploy
     storageAccountDeploy
     sqlServerDeploy
-    databricksWorkspaceDeploy
-    keyVaultDeploy
+    functionAppDeploy
+    dataFactoryDeployOrchestrator
+    deployWorkers ? dataFactoryDeployWorkers : null
+    deployADB ? databricksWorkspaceDeploy : null
   ]
 }
