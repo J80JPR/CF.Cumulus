@@ -13,6 +13,9 @@ param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
 
 param firstDeployment bool = false
 
+param deployWorkers bool = true
+
+
 var locationShortCodes = {
   uksouth: 'uks'
   ukwest: 'ukw'
@@ -107,7 +110,7 @@ module dataFactoryDeployOrchestrator 'modules/datafactory.template.bicep' = {
   ]
 }
 
-module dataFactoryDeployWorkers 'modules/datafactory.template.bicep' = {
+module dataFactoryDeployWorkers 'modules/datafactory.template.bicep' = if (deployWorkers) {
   scope: rg
   name: 'datafactory-workers${deploymentTimestamp}'
   params:{
@@ -245,7 +248,7 @@ module dataFactoryOrchestratorRoleAssignmentsDeploy 'modules/roleassignments/dat
   ]
 }
 
-module dataFactoryWorkersRoleAssignmentsDeploy 'modules/roleassignments/datafactory.template.bicep' = {
+module dataFactoryWorkersRoleAssignmentsDeploy 'modules/roleassignments/datafactory.template.bicep' = if (deployWorkers) {
   scope: rg
   name: 'adf-workers-roleassignments${deploymentTimestamp}'
   params:{
