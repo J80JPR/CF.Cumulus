@@ -16,7 +16,7 @@ param orgName string = 'tum' //Organization name for naming convention
 param uniqueIdentifier string = '01' //Unique suffix for resource names
 
 param datalakeName string = 'dls' //Storage account name prefix
-param functionStorageName string = 'fst' //Function app storage name prefix
+param functionBlobName string = 'fst' //Function app storage name prefix
 param databaseName string = 'Metadata' //SQL Database name
 
 param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
@@ -101,6 +101,39 @@ module appInsightsDeploy './modules/applicationinsights.template.bicep' = {
 }
 
 //Deployments with dependencies
+module functionBlobDeploy './modules/storage.template.bicep' = {
+  name: 'functionStorage${deploymentTimestamp}'
+  scope: rg
+  params: {
+    containers: {}
+    envName: envName
+    isHnsEnabled: false
+    isSftpEnabled: false
+    namePrefix: namePrefix
+    nameStorage: functionBlobName
+    nameSuffix: nameSuffix
+  }
+  dependsOn: [
+    keyVaultDeploy
+  ]
+}
+
+module functionAppDeploy './modules/functionapp.template.bicep' = {
+  scope: rg
+  name: 'functionApp${deploymentTimestamp}'
+  params: {
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+    nameStorage: functionBlobName
+  }
+  dependsOn: [
+    keyVaultDeploy
+    appInsightsDeploy
+    functionBlobDeploy
+  ]
+}
+
+
 module storageAccountDeploy './modules/storage.template.bicep' = {
   name: 'storageaccount${deploymentTimestamp}'
   scope: rg
@@ -123,23 +156,6 @@ module storageAccountDeploy './modules/storage.template.bicep' = {
       }
     }
     envName: envName
-  }
-  dependsOn: [
-    keyVaultDeploy
-  ]
-}
-
-module functionStorageDeploy './modules/storage.template.bicep' = {
-  name: 'functionStorage${deploymentTimestamp}'
-  scope: rg
-  params: {
-    containers: {}
-    envName: envName
-    isHnsEnabled: false
-    isSftpEnabled: false
-    namePrefix: namePrefix
-    nameStorage: functionStorageName
-    nameSuffix: nameSuffix
   }
   dependsOn: [
     keyVaultDeploy
@@ -179,38 +195,7 @@ module dataFactoryDeployWorkers './modules/datafactory.template.bicep' = if (dep
 }
 
 
-
-module databricksWorkspaceDeploy './modules/databricks.template.bicep' = {
-  scope: rg
-  name: 'databricks${deploymentTimestamp}'
-  params: {
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-    skuTier: 'standard'
-    managedResourceGroupName: '${namePrefix}rgm${nameSuffix}' 
-  }
-  dependsOn: [
-    keyVaultDeploy
-  ]
-}
-
-
-
-module functionAppDeploy './modules/functionapp.template.bicep' = {
-  scope: rg
-  name: 'functionApp${deploymentTimestamp}'
-  params: {
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-    nameStorage: functionStorageName
-  }
-  dependsOn: [
-    keyVaultDeploy
-    functionStorageDeploy
-    appInsightsDeploy
-  ]
-}
-
+// Deploy SQL Server with a basic blank database
 module sqlServerDeploy './modules/sqlserver.template.bicep' = {
   scope: rg
   name: 'sql-server${deploymentTimestamp}'
@@ -221,6 +206,36 @@ module sqlServerDeploy './modules/sqlserver.template.bicep' = {
   }
   dependsOn: [
     keyVaultDeploy
+  ]
+}
+
+// Deploy all networking resources as a package
+module networkingDeploy './modules/networking.template.bicep' = {
+  scope: rg
+  name: 'networking${deploymentTimestamp}'
+  params: {
+    location: location
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+  }
+}
+
+// Updated databricks deployment to use a VNET
+module databricksWorkspaceDeploy './modules/databricks.template.bicep' = {
+  scope: rg
+  name: 'databricks${deploymentTimestamp}'
+  params: {
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+    skuTier: 'standard'
+    managedResourceGroupName: '${namePrefix}rgm${nameSuffix}'
+    vnetName: networkingDeploy.outputs.vnetName
+    privateSubnetName: networkingDeploy.outputs.databricksPrivateSubnetName
+    publicSubnetName: networkingDeploy.outputs.databricksPublicSubnetName
+  }
+  dependsOn: [
+    keyVaultDeploy
+    networkingDeploy  // Add this dependency
   ]
 }
 
@@ -240,8 +255,8 @@ module databricksClusterDeploy './modules/databrickscluster.template.bicep' = {
     // LogAWkspKey: logAnalyticsDeploy.outputs.primarySharedKey
   }
   dependsOn: [
-    databricksWorkspaceDeploy
     keyVaultDeploy
+    databricksWorkspaceDeploy
   ]
 }
 
@@ -276,7 +291,6 @@ module dataFactoryOrchestratorRoleAssignmentsDeploy './modules/roleassignments/d
   }
   dependsOn: [
     dataFactoryDeployOrchestrator
-    dataFactoryDeployWorkers
     functionAppDeploy
     storageAccountDeploy
     sqlServerDeploy
@@ -295,7 +309,6 @@ module dataFactoryWorkersRoleAssignmentsDeploy './modules/roleassignments/datafa
     nameStorage: datalakeName
   }
   dependsOn: [
-    dataFactoryDeployOrchestrator
     dataFactoryDeployWorkers
     functionAppDeploy
     storageAccountDeploy

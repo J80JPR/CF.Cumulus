@@ -11,7 +11,7 @@ resource dataFactory 'Microsoft.DataFactory/factories@2018-06-01' existing = {
   name: name
 }
 
-resource dataFactoryRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (nameFactory == 'factory') {
+resource dataFactoryRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (nameFactory == 'factory' || nameFactory == 'adf') {
   name: guid(dataFactory.id, dataFactory.id, 'Contributor')
   scope: dataFactory
   properties: {
