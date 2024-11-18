@@ -9,15 +9,15 @@ targetScope = 'subscription'
 // * These parameters control resource naming and deployment options
 // * Required for consistent resource naming across environments
 
-param location string = 'southcentralus' //Azure region for deployment
+param location string = 'uksouth' //Azure region for deployment
 param envName string = 'dev' //Environment name (dev/test/prod)
 param domainName string = 'cfc' //Domain prefix for naming convention - Cloud Formations Cumulus
 param orgName string = 'tum' //Organization name for naming convention
 param uniqueIdentifier string = '01' //Unique suffix for resource names
 
 param datalakeName string = 'dls' //Storage account name prefix
-param functionBlobName string = 'fst' //Function app storage name prefix
-param databaseName string = 'Metadata' //SQL Database name
+param functionBlobName string = 'st' //Function app storage name prefix
+
 
 param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
 
@@ -25,6 +25,7 @@ param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
 param firstDeployment bool = false
 param deployWorkers bool = false
 param deployVM bool = false
+param deployADB bool = false
 
 // Mapping of Azure regions to short codes for naming conventions
 var locationShortCodes = {
@@ -54,6 +55,10 @@ var locationShortCode = locationShortCodes[location]
 var namePrefix = '${domainName}${orgName}${envName}'
 var nameSuffix = '${locationShortCode}${uniqueIdentifier}'
 var rgName = '${namePrefix}rg${nameSuffix}'
+
+//var databaseName string = 'Metadata' //SQL Database name
+var databaseName  = '${namePrefix}sqldb${nameSuffix}' //SQL Database name
+
 
 // Create main resource group for all deployed resources
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
@@ -221,7 +226,7 @@ module networkingDeploy './modules/networking.template.bicep' = {
 }
 
 // Updated databricks deployment to use a VNET
-module databricksWorkspaceDeploy './modules/databricks.template.bicep' = {
+module databricksWorkspaceDeploy './modules/databricks.template.bicep' = if (deployADB) {
   scope: rg
   name: 'databricks${deploymentTimestamp}'
   params: {
@@ -239,7 +244,7 @@ module databricksWorkspaceDeploy './modules/databricks.template.bicep' = {
   ]
 }
 
-module databricksClusterDeploy './modules/databrickscluster.template.bicep' = {
+module databricksClusterDeploy './modules/databrickscluster.template.bicep' = if (deployADB) {
   scope: rg
   name: 'databrickscluster${deploymentTimestamp}'
   params: {
