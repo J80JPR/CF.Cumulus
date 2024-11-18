@@ -37,7 +37,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "factory", "factory", "{21EB
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "integrationRuntime", "integrationRuntime", "{9B9A853D-D62E-4252-8FE7-7F1DD3FC6FF7}"
 	ProjectSection(SolutionItems) = preProject
-		azure.datafactory\integrationRuntime\AzureIR-UKSouth.json = azure.datafactory\integrationRuntime\AzureIR-UKSouth.json
+		azure.datafactory\integrationRuntime\AzureIR-southcentralus.json = azure.datafactory\integrationRuntime\AzureIR-southcentralus.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "linkedService", "linkedService", "{6859A9D9-8F80-47A8-B688-FECA79DF0923}"

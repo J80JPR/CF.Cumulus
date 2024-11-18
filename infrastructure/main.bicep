@@ -1,6 +1,6 @@
 targetScope = 'subscription'
 
-param location string = 'uksouth'
+param location string = 'southcentralus'
 param envName string
 param domainName string = 'cfc'
 param orgName string = 'demo'
@@ -17,6 +17,21 @@ var locationShortCodes = {
   uksouth: 'uks'
   ukwest: 'ukw'
   eastus: 'eus'
+  westus: 'wus'
+  westus2: 'wus2'
+  centralus: 'cus'
+  northcentralus: 'ncus'
+  southcentralus: 'scus'
+  eastus2: 'eus2'
+  westeurope: 'weu'
+  northeurope: 'neu'
+  francecentral: 'frc'
+  germanywestcentral: 'gwc'
+  switzerlandnorth: 'swn'
+  norwayeast: 'noe'
+  brazilsouth: 'brs'
+  canadacentral: 'cac'
+  canadaeast: 'cae'
 }
 
 var locationShortCode = locationShortCodes[location]

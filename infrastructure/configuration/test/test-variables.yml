@@ -6,13 +6,13 @@ variables:
   value: Dev Connection
 
 - name: DataFactoryNameFactory
-  value: cfcdemotestfactoryuks01
+  value: cfcdemotestfactoryscus01
 
 - name: DataFactoryNameWorkers
-  value: cfcdemotestworkersuks01
+  value: cfcdemotestworkersscus01
 
 - name: ADFResourceGroupName
-  value: cfcdemotestrguks01
+  value: cfcdemotestrgscus01
 
 - name: ADFArtifactName # Data Factory artifact name created during the datafactory.build.yml job template
   value: ADFArtifact
@@ -25,7 +25,7 @@ variables:
 
 # Shared
 - name: ResourceGroupLocation
-  value: "UK South"
+  value: "South Central US"
 
 - name: Environment
   value: TEST

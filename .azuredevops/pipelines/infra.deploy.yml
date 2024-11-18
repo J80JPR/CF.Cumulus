@@ -45,7 +45,7 @@ stages:
                     scriptLocation: 'inlineScript'
                     inlineScript: |
                       echo "Starting Bicep Preview (What-If Operation) in environment ${{ pair.key }}"
-                      az deployment sub what-if --name Deployment_${{ pair.key }}_$(date +'%Y%m%d%H%M%S') --template-file ./infrastructure/main.bicep --parameters ./infrastructure/configuration/${{ pair.key }}/main.bicepparam --location uksouth
+                      az deployment sub what-if --name Deployment_${{ pair.key }}_$(date +'%Y%m%d%H%M%S') --template-file ./infrastructure/main.bicep --parameters ./infrastructure/configuration/${{ pair.key }}/main.bicepparam --location southcentralus
 
             # - job: ManualValidation_${{ pair.key }}
             #   displayName: 'Manual Validation for ${{ upper(pair.key) }} Environment'
@@ -72,4 +72,4 @@ stages:
                     scriptLocation: 'inlineScript'
                     inlineScript: |
                       echo "Starting Bicep Deployment in environment ${{ pair.key }}"
-                      az deployment sub create --name Deployment_${{ pair.key }}_$(date +'%y-%m-%d-%H%M') --template-file ./infrastructure/main.bicep --parameters ./infrastructure/configuration/${{ pair.key }}/main.bicepparam --location uksouth
+                      az deployment sub create --name Deployment_${{ pair.key }}_$(date +'%y-%m-%d-%H%M') --template-file ./infrastructure/main.bicep --parameters ./infrastructure/configuration/${{ pair.key }}/main.bicepparam --location southcentralus
