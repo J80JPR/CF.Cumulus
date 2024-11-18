@@ -26,6 +26,7 @@ param firstDeployment bool = false
 param deployWorkers bool = false
 param deployVM bool = false
 param deployADB bool = false
+param deployNetworking bool = false
 
 // Mapping of Azure regions to short codes for naming conventions
 var locationShortCodes = {
@@ -215,7 +216,7 @@ module sqlServerDeploy './modules/sqlserver.template.bicep' = {
 }
 
 // Deploy all networking resources as a package
-module networkingDeploy './modules/networking.template.bicep' = {
+module networkingDeploy './modules/networking.template.bicep' = if (deployNetworking) {
   scope: rg
   name: 'networking${deploymentTimestamp}'
   params: {
