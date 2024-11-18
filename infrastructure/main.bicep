@@ -11,18 +11,20 @@ targetScope = 'subscription'
 
 param location string = 'southcentralus' //Azure region for deployment
 param envName string = 'dev' //Environment name (dev/test/prod)
-param domainName string = 'cfc' //Domain prefix for naming convention - cfc is for Cumulus 
-param orgName string = 'demo' //Organization name for naming convention
+param domainName string = 'cfc' //Domain prefix for naming convention - Cloud Formations Cumulus
+param orgName string = 'tum' //Organization name for naming convention
 param uniqueIdentifier string = '01' //Unique suffix for resource names
 
-param nameStorage string = 'dls' //Storage account name prefix
+param datalakeName string = 'dls' //Storage account name prefix
 param functionStorageName string = 'fst' //Function app storage name prefix
+param databaseName string = 'Metadata' //SQL Database name
 
 param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
 
 //Parameters for optional settings
 param firstDeployment bool = false
 param deployWorkers bool = false
+param deployVM bool = false
 
 // Mapping of Azure regions to short codes for naming conventions
 var locationShortCodes = {
@@ -69,7 +71,7 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
  */
 
  //Deployments without dependencies
-module keyVaultDeploy 'modules/keyvault.template.bicep' = {
+module keyVaultDeploy './modules/keyvault.template.bicep' = {
   scope: rg
   name: 'keyvault${deploymentTimestamp}'
   params:{
@@ -79,7 +81,7 @@ module keyVaultDeploy 'modules/keyvault.template.bicep' = {
   }
 }
 
-module logAnalyticsDeploy 'modules/loganalytics.template.bicep' = {
+module logAnalyticsDeploy './modules/loganalytics.template.bicep' = {
   scope: rg
   name: 'log-analytics${deploymentTimestamp}'
   params:{
@@ -88,7 +90,7 @@ module logAnalyticsDeploy 'modules/loganalytics.template.bicep' = {
     nameSuffix: nameSuffix
   }
 }
-module appInsightsDeploy 'modules/applicationinsights.template.bicep' = {
+module appInsightsDeploy './modules/applicationinsights.template.bicep' = {
   scope: rg
   name: 'app-insights${deploymentTimestamp}'
   params:{
@@ -99,7 +101,7 @@ module appInsightsDeploy 'modules/applicationinsights.template.bicep' = {
 }
 
 //Deployments with dependencies
-module storageAccountDeploy 'modules/storage.template.bicep' = {
+module storageAccountDeploy './modules/storage.template.bicep' = {
   name: 'storageaccount${deploymentTimestamp}'
   scope: rg
   params: {
@@ -108,7 +110,7 @@ module storageAccountDeploy 'modules/storage.template.bicep' = {
     accessTier: 'Hot'
     namePrefix: namePrefix
     nameSuffix: nameSuffix
-    nameStorage: nameStorage
+    nameStorage: datalakeName
     containers: {
       bronze: {
         name: 'raw'
@@ -127,11 +129,28 @@ module storageAccountDeploy 'modules/storage.template.bicep' = {
   ]
 }
 
-module dataFactoryDeployOrchestrator 'modules/datafactory.template.bicep' = {
+module functionStorageDeploy './modules/storage.template.bicep' = {
+  name: 'functionStorage${deploymentTimestamp}'
+  scope: rg
+  params: {
+    containers: {}
+    envName: envName
+    isHnsEnabled: false
+    isSftpEnabled: false
+    namePrefix: namePrefix
+    nameStorage: functionStorageName
+    nameSuffix: nameSuffix
+  }
+  dependsOn: [
+    keyVaultDeploy
+  ]
+}
+
+module dataFactoryDeployOrchestrator './modules/datafactory.template.bicep' = {
   scope: rg
   name: 'datafactory-orchestrator${deploymentTimestamp}'
   params:{
-    nameFactory: 'factory'
+    nameFactory: deployWorkers ? 'factory' : 'adf' // if workers adf is being setup we call this one factory, otherwise we call it adf
     namePrefix: namePrefix
     nameSuffix: nameSuffix
     envName: envName
@@ -143,7 +162,7 @@ module dataFactoryDeployOrchestrator 'modules/datafactory.template.bicep' = {
   ]
 }
 
-module dataFactoryDeployWorkers 'modules/datafactory.template.bicep' = if (deployWorkers) {
+module dataFactoryDeployWorkers './modules/datafactory.template.bicep' = if (deployWorkers) {
   scope: rg
   name: 'datafactory-workers${deploymentTimestamp}'
   params:{
@@ -161,7 +180,7 @@ module dataFactoryDeployWorkers 'modules/datafactory.template.bicep' = if (deplo
 
 
 
-module databricksWorkspaceDeploy 'modules/databricks.template.bicep' = {
+module databricksWorkspaceDeploy './modules/databricks.template.bicep' = {
   scope: rg
   name: 'databricks${deploymentTimestamp}'
   params: {
@@ -174,24 +193,9 @@ module databricksWorkspaceDeploy 'modules/databricks.template.bicep' = {
   ]
 }
 
-module functionStorageDeploy 'modules/storage.template.bicep' = {
-  name: 'functionStorage${deploymentTimestamp}'
-  scope: rg
-  params: {
-    containers: {}
-    envName: envName
-    isHnsEnabled: false
-    isSftpEnabled: false
-    namePrefix: namePrefix
-    nameStorage: functionStorageName
-    nameSuffix: nameSuffix
-  }
-  dependsOn: [
-    keyVaultDeploy
-  ]
-}
 
-module functionAppDeploy 'modules/functionapp.template.bicep' = {
+
+module functionAppDeploy './modules/functionapp.template.bicep' = {
   scope: rg
   name: 'functionApp${deploymentTimestamp}'
   params: {
@@ -206,11 +210,11 @@ module functionAppDeploy 'modules/functionapp.template.bicep' = {
   ]
 }
 
-module sqlServerDeploy 'modules/sqlserver.template.bicep' = {
+module sqlServerDeploy './modules/sqlserver.template.bicep' = {
   scope: rg
   name: 'sql-server${deploymentTimestamp}'
   params: {
-    databaseName: 'metadata'
+    databaseName: databaseName
     namePrefix: namePrefix
     nameSuffix: nameSuffix
   }
@@ -219,7 +223,7 @@ module sqlServerDeploy 'modules/sqlserver.template.bicep' = {
   ]
 }
 
-module databricksClusterDeploy 'modules/databrickscluster.template.bicep' = {
+module databricksClusterDeploy './modules/databrickscluster.template.bicep' = {
   scope: rg
   name: 'databrickscluster${deploymentTimestamp}'
   params: {
@@ -240,7 +244,7 @@ module databricksClusterDeploy 'modules/databrickscluster.template.bicep' = {
   ]
 }
 
-module virtualMachineDeploy 'modules/virtualmachine.template.bicep' = {
+module virtualMachineDeploy './modules/virtualmachine.template.bicep' = if (deployVM) {
   scope: rg
   name: 'vm${deploymentTimestamp}'
   params: {
@@ -260,14 +264,14 @@ module virtualMachineDeploy 'modules/virtualmachine.template.bicep' = {
  * - Function App access to required resources
  * Note: firstDeployment parameter controls initial RBAC setup
  */
-module dataFactoryOrchestratorRoleAssignmentsDeploy 'modules/roleassignments/datafactory.template.bicep' = {
+module dataFactoryOrchestratorRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = {
   scope: rg
   name: 'adf-orchestration-roleassignments${deploymentTimestamp}'
   params:{
     nameFactory: 'factory'
     namePrefix: namePrefix
     nameSuffix: nameSuffix
-    nameStorage: nameStorage
+    nameStorage: datalakeName
   }
   dependsOn: [
     dataFactoryDeployOrchestrator
@@ -280,14 +284,14 @@ module dataFactoryOrchestratorRoleAssignmentsDeploy 'modules/roleassignments/dat
   ]
 }
 
-module dataFactoryWorkersRoleAssignmentsDeploy 'modules/roleassignments/datafactory.template.bicep' = if (deployWorkers) {
+module dataFactoryWorkersRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = if (deployWorkers) {
   scope: rg
   name: 'adf-workers-roleassignments${deploymentTimestamp}'
   params: {
     nameFactory: 'workers'
     namePrefix: namePrefix
     nameSuffix: nameSuffix
-    nameStorage: nameStorage
+    nameStorage: datalakeName
   }
   dependsOn: [
     dataFactoryDeployOrchestrator
@@ -300,7 +304,7 @@ module dataFactoryWorkersRoleAssignmentsDeploy 'modules/roleassignments/datafact
   ]
 }
 
-module functionAppRoleAssignmentsDeploy 'modules/roleassignments/functionapp.template.bicep' = {
+module functionAppRoleAssignmentsDeploy './modules/roleassignments/functionapp.template.bicep' = {
   scope: rg
   name: 'functionapp-roleassignments${deploymentTimestamp}'
   params: {
