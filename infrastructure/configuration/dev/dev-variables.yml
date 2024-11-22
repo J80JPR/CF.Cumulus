@@ -2,7 +2,7 @@
 
 variables: 
 - name: BuildDataFactoryName
-  value: cfctumdevfactoryscus01
+  value: cfctumdevadfscus01
 
 - name: BuildDataFactoryResourceGroupName
   value: cfctumdevrgscus01

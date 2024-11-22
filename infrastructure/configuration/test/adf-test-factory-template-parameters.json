@@ -3,7 +3,7 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "factoryName": {
-            "value": "cfctumtstfactoryscus01"
+            "value": "cfctumtstadfscus01"
         },
         "Common_LS_cumulusdatabase_connectionString": {
             "value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=cfctumtstsqldbscus01.database.windows.net;Initial Catalog=metadata-db"

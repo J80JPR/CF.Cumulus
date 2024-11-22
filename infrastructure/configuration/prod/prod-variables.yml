@@ -6,7 +6,7 @@ variables:
   value: Dev Connection
 
 - name: DataFactoryNameFactory
-  value: cfctumprdfactoryscus01
+  value: cfctumprdadfscus01
 
 - name: DataFactoryNameWorkers
   value: cfctumprdworkersscus01
