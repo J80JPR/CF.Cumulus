@@ -3,16 +3,16 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "factoryName": {
-            "value": "cfcdemotestfactoryscus01"
+            "value": "cfctumtstfactoryscus01"
         },
         "Common_LS_cumulusdatabase_connectionString": {
-            "value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=cfcdemotestsqldbscus01.database.windows.net;Initial Catalog=metadata-db"
+            "value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=cfctumtstsqldbscus01.database.windows.net;Initial Catalog=metadata-db"
         },
         "Common_LS_cumulusfunctions_properties_typeProperties_functionAppUrl": {
-            "value": "https://cfcdemotestfuncscus01.azurewebsites.net"
+            "value": "https://cfctumtstfuncscus01.azurewebsites.net"
         },
         "Common_LS_cumuluskeys_properties_typeProperties_baseUrl": {
-            "value": "https://cfcdemotestkvscus01.vault.azure.net/"
+            "value": "https://cfctumtstkvltscus01.vault.azure.net/"
         }
     }
 }

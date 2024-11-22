@@ -9,10 +9,10 @@ param logAnalyticsWorkspaceId string
 
 var name = '${namePrefix}${nameFactory}${nameSuffix}'
 var repoConfig = {
-  accountName: 'cfsource'
+  accountName: 'TUM-IT-Projects'
   collaborationBranch: 'main'
   projectName: 'Data_Platform'
-  repositoryName: 'CF.Cumulus'
+  repositoryName: 'Data_Platform'
   rootFolder: '/src/azure.datafactory'
   type: 'FactoryVSTSConfiguration'
   tenantId: subscription().tenantId

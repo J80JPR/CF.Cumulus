@@ -6,13 +6,13 @@ variables:
   value: Dev Connection
 
 - name: DataFactoryNameFactory
-  value: cfcdemoprodfactoryscus01
+  value: cfctumprdfactoryscus01
 
 - name: DataFactoryNameWorkers
-  value: cfcdemoprodworkersscus01
+  value: cfctumprdworkersscus01
 
 - name: ADFResourceGroupName
-  value: cfcdemoprodrgscus01
+  value: cfctumprdrgscus01
 
 - name: ADFArtifactName # Data Factory artifact name created during the datafactory.build.yml job template
   value: ADFArtifact
