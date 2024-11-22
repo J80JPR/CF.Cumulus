@@ -10,7 +10,7 @@ param nameSuffix string
 param keyVaultExists bool
 
 
-var name = '${namePrefix}kv${nameSuffix}'
+var name = '${namePrefix}kvlt${nameSuffix}'
 
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = if (!keyVaultExists) {
   name: name

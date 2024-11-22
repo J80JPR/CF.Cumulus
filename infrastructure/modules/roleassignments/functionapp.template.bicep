@@ -16,7 +16,7 @@ var functionappName = '${namePrefix}func${nameSuffix}'
 
 // Reference to an existing Key Vault resource
 resource keyVault  'Microsoft.KeyVault/vaults@2019-09-01' existing = {
-  name: '${namePrefix}kv${nameSuffix}'
+  name: '${namePrefix}kvlt${nameSuffix}'
 }
 
 // Reference to an existing Function App resource

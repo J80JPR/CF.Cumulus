@@ -25,7 +25,7 @@ resource sqlServer 'Microsoft.Sql/servers@2023-05-01-preview' = {
   }
 }
 
-var keyVaultName = '${namePrefix}kv${nameSuffix}'
+var keyVaultName = '${namePrefix}kvlt${nameSuffix}'
 
 // Validate Key Vault exists 
 resource sqlServerVault 'Microsoft.KeyVault/vaults@2024-04-01-preview' existing = {

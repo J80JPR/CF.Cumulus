@@ -14,7 +14,7 @@ var vnetName = '${namePrefix}vnet${nameSuffix}'
 var subnetName = '${namePrefix}subnet${nameSuffix}'
 var ipName = '${namePrefix}ip${nameSuffix}'
 
-var keyVaultName = '${namePrefix}kv${nameSuffix}'
+var keyVaultName = '${namePrefix}kvlt${nameSuffix}'
 
 var specialChars = '!@#$%^&*' // Special characters to be used in the password
 var adminPassword = '${take(randomGuid, 16)}${take(specialChars, 2)}1A'
@@ -111,7 +111,7 @@ resource virtualMachine 'Microsoft.Compute/virtualMachines@2024-03-01' = {
 
 // Generate a random password for the SQL Server and put it in the Key Vault
 module vmKeyVault 'secret.template.bicep' = if (keyVault.name != null) {
-  name: '${virtualMachine.name}-kv-secrets'
+  name: '${virtualMachine.name}-kvlt-secrets'
   scope: resourceGroup()
   params: {
     keyVaultName: keyVault.name

@@ -9,24 +9,28 @@ targetScope = 'subscription'
 // * These parameters control resource naming and deployment options
 // * Required for consistent resource naming across environments
 
-param location string = 'uksouth' //Azure region for deployment
+param location string = 'southcentralus' //Azure region for deployment
 param envName string = 'dev' //Environment name (dev/test/prod)
 param domainName string = 'cfc' //Domain prefix for naming convention - Cloud Formations Cumulus
 param orgName string = 'tum' //Organization name for naming convention
-param uniqueIdentifier string = '05' //Unique suffix for resource names
+param uniqueIdentifier string = '01' //Unique suffix for resource names
 
-param datalakeName string = 'dls' //Storage account name prefix
+param datalakeName string = 'dl' //Storage account name prefix
 param functionBlobName string = 'st' //Function app storage name prefix
-
 
 param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
 
 //Parameters for optional settings
 param firstDeployment bool = false
+param deployADF bool = false
 param deployWorkers bool = false
 param deployVM bool = false
-param deployADB bool = false
-param deployNetworking bool = false
+param deploySQL bool = true
+param deployFunction bool = true
+param deployNetworking bool = true
+param deployADBWorkspace bool = true
+param deployADBCluster bool = false // Controls ADB Cluster creation
+param deployPAT bool = false
 
 // Mapping of Azure regions to short codes for naming conventions
 var locationShortCodes = {
@@ -58,12 +62,14 @@ var nameSuffix = '${locationShortCode}${uniqueIdentifier}'
 var rgName = '${namePrefix}rg${nameSuffix}'
 
 //var databaseName string = 'Metadata' //SQL Database name
-var databaseName  = '${namePrefix}sqldb${nameSuffix}' //SQL Database name
+var databaseName = '${namePrefix}sqldb${nameSuffix}' //SQL Database name
 
 // Register Microsoft.AlertsManagement provider - The registration operation is idempotent, meaning it's safe to run every time.
-resource alertsManagementProvider 'Microsoft.Resources/providers@2024-08-01' = {
-  name: 'Microsoft.AlertsManagement'
-}
+// Need to find the write API
+
+// resource alertsManagementProvider 'Microsoft.Resources/providers@2024-08-01' = {
+//   name: 'Microsoft.AlertsManagement'
+// }
 
 // Create main resource group for all deployed resources
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
@@ -71,89 +77,17 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   location: location
 }
 
-/* Service Deployment Sequence
- * Modules are deployed in order of dependencies:
- * 1. Key Vault - Required for secrets
- * 2. App Insights & Log Analytics - Monitoring
- * 3. Storage Accounts - Data lake and function storage
- * 4. Compute Services - ADF, Databricks, Functions
- * 5. Database - SQL Server
- */
-
- //Deployments without dependencies
+// Base resources
 
 module keyVaultDeploy './modules/keyvault.template.bicep' = {
   scope: rg
   name: 'keyvault${deploymentTimestamp}'
-  params:{
+  params: {
     keyVaultExists: false
     namePrefix: namePrefix
     nameSuffix: nameSuffix
   }
 }
-
-module logAnalyticsDeploy './modules/loganalytics.template.bicep' = {
-  scope: rg
-  name: 'log-analytics${deploymentTimestamp}'
-  params:{
-    envName: envName
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-  }
-}
-module appInsightsDeploy './modules/applicationinsights.template.bicep' = {
-  scope: rg
-  name: 'app-insights${deploymentTimestamp}'
-  params:{
-    envName: envName
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-  }
-}
-
-module networkingDeploy './modules/networking.template.bicep' = if (deployNetworking) {
-  scope: rg
-  name: 'networking${deploymentTimestamp}'
-  params: {
-    location: location
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-  }
-}
-
-//Deployments with dependencies
-module functionBlobDeploy './modules/storage.template.bicep' = {
-  name: 'functionStorage${deploymentTimestamp}'
-  scope: rg
-  params: {
-    containers: {}
-    envName: envName
-    isHnsEnabled: false
-    isSftpEnabled: false
-    namePrefix: namePrefix
-    nameStorage: functionBlobName
-    nameSuffix: nameSuffix
-  }
-  dependsOn: [
-    keyVaultDeploy
-  ]
-}
-
-module functionAppDeploy './modules/functionapp.template.bicep' = {
-  scope: rg
-  name: 'functionApp${deploymentTimestamp}'
-  params: {
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-    nameStorage: functionBlobName
-  }
-  dependsOn: [
-    keyVaultDeploy
-    appInsightsDeploy
-    functionBlobDeploy
-  ]
-}
-
 
 module storageAccountDeploy './modules/storage.template.bicep' = {
   name: 'storageaccount${deploymentTimestamp}'
@@ -165,6 +99,7 @@ module storageAccountDeploy './modules/storage.template.bicep' = {
     namePrefix: namePrefix
     nameSuffix: nameSuffix
     nameStorage: datalakeName
+    storageKind: 'StorageV2'
     containers: {
       bronze: {
         name: 'raw'
@@ -183,10 +118,78 @@ module storageAccountDeploy './modules/storage.template.bicep' = {
   ]
 }
 
-module dataFactoryDeployOrchestrator './modules/datafactory.template.bicep' = {
+module logAnalyticsDeploy './modules/loganalytics.template.bicep' = {
+  scope: rg
+  name: 'log-analytics${deploymentTimestamp}'
+  params: {
+    envName: envName
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+  }
+}
+
+module appInsightsDeploy './modules/applicationinsights.template.bicep' = {
+  scope: rg
+  name: 'app-insights${deploymentTimestamp}'
+  params: {
+    envName: envName
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+  }
+}
+
+//Function resources
+module functionBlobDeploy './modules/storage.template.bicep' = if (deployFunction) {
+  name: 'functionStorage${deploymentTimestamp}'
+  scope: rg
+  params: {
+    containers: {}
+    envName: envName
+    isHnsEnabled: false
+    isSftpEnabled: false
+    namePrefix: namePrefix
+    nameStorage: functionBlobName
+    nameSuffix: nameSuffix
+    storageKind: 'Storage'
+  }
+  dependsOn: [
+    keyVaultDeploy
+  ]
+}
+
+module functionAppDeploy './modules/functionapp.template.bicep' = if (deployFunction) {
+  scope: rg
+  name: 'functionApp${deploymentTimestamp}'
+  params: {
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+    nameStorage: functionBlobName
+  }
+  dependsOn: [
+    keyVaultDeploy
+    appInsightsDeploy
+    functionBlobDeploy
+  ]
+}
+
+// Deploy Networking resources
+module networkingDeploy './modules/networking.template.bicep' = if (deployNetworking) {
+  scope: rg
+  name: 'networking${deploymentTimestamp}'
+  params: {
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+  }
+  dependsOn: [
+    keyVaultDeploy
+  ]
+}
+
+// // Datafactory Resources
+module dataFactoryDeployOrchestrator './modules/datafactory.template.bicep' = if (deployADF) {
   scope: rg
   name: 'datafactory-orchestrator${deploymentTimestamp}'
-  params:{
+  params: {
     nameFactory: deployWorkers ? 'factory' : 'adf' // if workers adf is being setup we call this one factory, otherwise we call it adf
     namePrefix: namePrefix
     nameSuffix: nameSuffix
@@ -199,10 +202,10 @@ module dataFactoryDeployOrchestrator './modules/datafactory.template.bicep' = {
   ]
 }
 
-module dataFactoryDeployWorkers './modules/datafactory.template.bicep' = if (deployWorkers) {
+module dataFactoryDeployWorkers './modules/datafactory.template.bicep' = if (deployADF && deployWorkers) {
   scope: rg
   name: 'datafactory-workers${deploymentTimestamp}'
-  params:{
+  params: {
     nameFactory: 'workers'
     namePrefix: namePrefix
     nameSuffix: nameSuffix
@@ -215,9 +218,8 @@ module dataFactoryDeployWorkers './modules/datafactory.template.bicep' = if (dep
   ]
 }
 
-
 // Deploy SQL Server with a basic blank database
-module sqlServerDeploy './modules/sqlserver.template.bicep' = {
+module sqlServerDeploy './modules/sqlserver.template.bicep' = if (deploySQL) {
   scope: rg
   name: 'sql-server${deploymentTimestamp}'
   params: {
@@ -230,45 +232,51 @@ module sqlServerDeploy './modules/sqlserver.template.bicep' = {
   ]
 }
 
-// Deploy all networking resources as a package
-
-
-// Updated databricks deployment to use a VNET
-module databricksWorkspaceDeploy './modules/databricks.template.bicep' = if (deployADB) {
+// Deploy databricks deployment (within a VNET)
+module databricksWorkspaceDeploy './modules/databricksworkspace.template.bicep' = if (deployADBWorkspace) {
   scope: rg
   name: 'databricks${deploymentTimestamp}'
   params: {
     namePrefix: namePrefix
     nameSuffix: nameSuffix
-    skuTier: 'standard'
-    managedResourceGroupName: '${namePrefix}rgm${nameSuffix}'
-    // vnetName: networkingDeploy.outputs.vnetName
-    // privateSubnetName: networkingDeploy.outputs.databricksPrivateSubnetName
-    // publicSubnetName: networkingDeploy.outputs.databricksPublicSubnetName
+    skuTier: 'Standard'
+    vnetId: networkingDeploy.outputs.vnetId
   }
   dependsOn: [
     keyVaultDeploy
-    deployNetworking ? networkingDeploy : null
+    storageAccountDeploy
+    networkingDeploy
   ]
 }
 
-module databricksClusterDeploy './modules/databrickscluster.template.bicep' = if (deployADB) {
+module databricksPatDeploy './modules/databrickspat.template.bicep' = if (deployADBWorkspace && deployPAT) {
   scope: rg
-  name: 'databrickscluster${deploymentTimestamp}'
+  name: 'databrickspat${deploymentTimestamp}'
   params: {
-    location: location
-    adb_workspace_url: databricksWorkspaceDeploy.outputs.databricks_workspaceUrl
-    adb_workspace_id: databricksWorkspaceDeploy.outputs.databricks_workspace_id
+    adb_workspace_managed_identity_id: databricksWorkspaceDeploy.outputs.databricks_managed_identity.id
+    adb_workspace_id: databricksWorkspaceDeploy.outputs.databricks_workspace.id
+    adb_workspace_url: databricksWorkspaceDeploy.outputs.databricks_workspace.properties.workspaceUrl
     adb_secret_scope_name: 'CumulusScope01'
     akv_id: keyVaultDeploy.outputs.keyVaultId
     akv_uri: keyVaultDeploy.outputs.keyVaultURI
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-    // LogAWkspId: logAnalyticsDeploy.outputs.resourceId
-    // LogAWkspKey: logAnalyticsDeploy.outputs.primarySharedKey
   }
   dependsOn: [
+    databricksWorkspaceDeploy
     keyVaultDeploy
+  ]
+}
+ 
+module databricksClusterDeploy './modules/databrickscluster.template.bicep' = if (deployADBCluster) {
+  scope: rg
+  name: 'databrickscluster${deploymentTimestamp}'
+  params: {
+    adb_cluster_name: 'production-cluster'
+    adb_workspace_id: databricksWorkspaceDeploy.outputs.databricks_workspace.id
+    adb_workspace_url: databricksWorkspaceDeploy.outputs.databricks_workspace.properties.workspaceUrl
+    adb_workspace_managed_identity_id: databricksWorkspaceDeploy.outputs.databricks_managed_identity.id
+    adb_secret_scope_name: 'CumulusScope01'
+  }
+  dependsOn: [
     databricksWorkspaceDeploy
   ]
 }
@@ -291,64 +299,84 @@ module virtualMachineDeploy './modules/virtualmachine.template.bicep' = if (depl
  * Configures service-to-service permissions:
  * - Data Factory access to storage, functions, and other services
  * - Function App access to required resources
- * Note: firstDeployment parameter controls initial RBAC setup
+ * Note: firstDeployment parameter controls initial RBAC setup for function app
  */
-module dataFactoryOrchestratorRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = {
-  scope: rg
-  name: 'adf-orchestration-roleassignments${deploymentTimestamp}'
-  params:{
-    nameFactory: deployWorkers ? 'factory' : 'adf' // if workers adf is being setup we call this one factory, otherwise we call it adf
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-    nameStorage: datalakeName
-    statusADB: deployADB
-  }
-  dependsOn: [
-    dataFactoryDeployOrchestrator
-    functionAppDeploy
-    storageAccountDeploy
-    sqlServerDeploy
-    keyVaultDeploy
-    deployADB ? databricksWorkspaceDeploy : null
-  ]
-}
 
-module dataFactoryWorkersRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = if (deployWorkers) {
-  scope: rg
-  name: 'adf-workers-roleassignments${deploymentTimestamp}'
-  params: {
-    nameFactory: 'workers'
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-    nameStorage: datalakeName
-    statusADB: deployADB
-  }
-  dependsOn: [
-    keyVaultDeploy
-    storageAccountDeploy
-    sqlServerDeploy
-    functionAppDeploy
-    deployWorkers ? dataFactoryDeployWorkers : null
-    deployADB ? databricksWorkspaceDeploy : null
-  ]
-}
+// module dataFactoryOrchestratorRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = if (deployADF) {
+//   scope: rg
+//   name: 'adf-orchestration-roleassignments${deploymentTimestamp}'
+//   params: {
+//     nameFactory: deployWorkers ? 'factory' : 'adf' // if workers adf is being setup we call this one factory, otherwise we call it adf
+//     namePrefix: namePrefix
+//     nameSuffix: nameSuffix
+//     nameStorage: datalakeName
+//     statusADB: deployADBWorkspace
+//     statusFunction: deployFunction
+//   }
+//   dependsOn: [
+//     keyVaultDeploy
+//     storageAccountDeploy
+//     dataFactoryDeployOrchestrator
+//     deploySQL ? sqlServerDeploy : null
+//     deployFunction ? functionAppDeploy : null
+//     deployADBWorkspace ? databricksWorkspaceDeploy : null
+//   ]
+// }
 
-module functionAppRoleAssignmentsDeploy './modules/roleassignments/functionapp.template.bicep' = {
-  scope: rg
-  name: 'functionapp-roleassignments${deploymentTimestamp}'
-  params: {
-    namePrefix: namePrefix
-    nameSuffix: nameSuffix
-    firstDeployment: firstDeployment
-    deployWorkers: deployWorkers
-  }
-  dependsOn: [
-    keyVaultDeploy
-    storageAccountDeploy
-    sqlServerDeploy
-    functionAppDeploy
-    dataFactoryDeployOrchestrator
-    deployWorkers ? dataFactoryDeployWorkers : null
-    deployADB ? databricksWorkspaceDeploy : null
-  ]
-}
+// module dataFactoryWorkersRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = if (deployWorkers) {
+//   scope: rg
+//   name: 'adf-workers-roleassignments${deploymentTimestamp}'
+//   params: {
+//     nameFactory: 'workers'
+//     namePrefix: namePrefix
+//     nameSuffix: nameSuffix
+//     nameStorage: datalakeName
+//     statusADB: deployADBWorkspace
+//     statusFunction: deployFunction
+//   }
+//   dependsOn: [
+//     keyVaultDeploy
+//     storageAccountDeploy
+//     dataFactoryDeployWorkers
+//     deploySQL ? sqlServerDeploy : null
+//     deployFunction ? functionAppDeploy : null
+//     deployADBWorkspace ? databricksWorkspaceDeploy : null
+//   ]
+// }
+
+// module functionAppRoleAssignmentsDeploy './modules/roleassignments/functionapp.template.bicep' = if (deployFunction) {
+//   scope: rg
+//   name: 'functionapp-roleassignments${deploymentTimestamp}'
+//   params: {
+//     namePrefix: namePrefix
+//     nameSuffix: nameSuffix
+//     firstDeployment: firstDeployment
+//     deployWorkers: deployWorkers
+//   }
+//   dependsOn: [
+//     keyVaultDeploy
+//     storageAccountDeploy
+//     dataFactoryDeployOrchestrator
+//     deploySQL ? sqlServerDeploy : null
+//     deployFunction ? functionAppDeploy : null
+//     deployADBWorkspace ? databricksWorkspaceDeploy : null
+//     deployWorkers ? dataFactoryDeployWorkers : null
+//   ]
+// }
+
+
+
+// module dataBricksRoleAssignmentsDeploy './modules/roleassignments/databricks.template.bicep' = if (deployADBWorkspace) {
+//   scope: rg
+//   name: 'databricks-roleassignments${deploymentTimestamp}'
+//   params: {
+//     adb_workspace_managed_identity_id: databricksWorkspaceDeploy.outputs.databricks_managed_identity
+//     adb_workspace_name: databricksWorkspaceDeploy.name
+//     dataFactoryName: dataFactoryDeployOrchestrator.name
+//   }
+//   dependsOn: [
+//     storageAccountDeploy
+//     databricksWorkspaceDeploy
+//     dataFactoryDeployOrchestrator
+//   ]
+// }

@@ -11,7 +11,7 @@ var name = '${namePrefix}${nameFactory}${nameSuffix}'
 var repoConfig = {
   accountName: 'cfsource'
   collaborationBranch: 'main'
-  projectName: 'CF.Cumulus'
+  projectName: 'Data_Platform'
   repositoryName: 'CF.Cumulus'
   rootFolder: '/src/azure.datafactory'
   type: 'FactoryVSTSConfiguration'

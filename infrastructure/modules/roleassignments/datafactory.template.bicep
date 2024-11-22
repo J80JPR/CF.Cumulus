@@ -5,6 +5,7 @@ param nameSuffix string
 param nameFactory string
 param nameStorage string
 param statusADB bool
+param statusFunction bool
 
 // Construct the Data Factory name using prefix, factory name, and suffix
 var name = '${namePrefix}${nameFactory}${nameSuffix}'
@@ -27,7 +28,7 @@ resource dataFactoryRoleAssignment 'Microsoft.Authorization/roleAssignments@2022
 
 // Reference to existing Key Vault resource
 resource keyVault  'Microsoft.KeyVault/vaults@2019-09-01' existing = {
-  name: '${namePrefix}kv${nameSuffix}'
+  name: '${namePrefix}kvlt${nameSuffix}'
 }
 
 // Assign Key Vault Secrets User role to allow Data Factory to access secrets
@@ -42,7 +43,7 @@ resource keyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04
 
 // Reference to existing SQL Server resource
 resource sqlServer 'Microsoft.Sql/servers@2023-05-01-preview' existing = {
-  name: '${namePrefix}sqldb${nameSuffix}'
+  name: '${namePrefix}sql${nameSuffix}'
 }
 
 // Assign Reader role to Data Factory for SQL Server access
@@ -70,13 +71,13 @@ resource databricksRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-
   }
 }
 
-// Reference to existing Function App
-resource functionApp 'Microsoft.Web/sites@2023-12-01' existing = {
+//Reference to existing Function App
+resource functionApp 'Microsoft.Web/sites@2023-12-01' existing = if (statusFunction) {
   name: '${namePrefix}func${nameSuffix}'
 }
 
 // Assign Contributor role to Data Factory for Function App access
-resource functionAppRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource functionAppRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' =  if (statusFunction) {
   name: guid(dataFactory.id, functionApp.id, 'Contributor')
   scope: functionApp
   properties: {
