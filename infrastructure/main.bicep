@@ -10,7 +10,7 @@ targetScope = 'subscription'
 // * Required for consistent resource naming across environments
 
 param location string = 'southcentralus' //Azure region for deployment
-param envName string = 'dev' //Environment name (dev/test/prod)
+param envName string = 'dev' //Environment name (dev/tst/prod)
 param domainName string = 'cfc' //Domain prefix for naming convention - Cloud Formations Cumulus
 param orgName string = 'tum' //Organization name for naming convention
 param uniqueIdentifier string = '01' //Unique suffix for resource names
@@ -22,15 +22,16 @@ param deploymentTimestamp string = utcNow('yy-MM-dd-HHmm')
 
 //Parameters for optional settings
 param firstDeployment bool = false
-param deployADF bool = false
+param deployADF bool = true
 param deployWorkers bool = false
 param deployVM bool = false
 param deploySQL bool = true
 param deployFunction bool = true
 param deployNetworking bool = true
 param deployADBWorkspace bool = true
-param deployADBCluster bool = false // Controls ADB Cluster creation
-param deployPAT bool = false
+param deployADBCluster bool = true // Controls ADB Cluster creation
+param deployPAT bool = true
+param setRoleAssignments bool = false
 
 // Mapping of Azure regions to short codes for naming conventions
 var locationShortCodes = {
@@ -64,17 +65,25 @@ var rgName = '${namePrefix}rg${nameSuffix}'
 //var databaseName string = 'Metadata' //SQL Database name
 var databaseName = '${namePrefix}sqldb${nameSuffix}' //SQL Database name
 
-// Register Microsoft.AlertsManagement provider - The registration operation is idempotent, meaning it's safe to run every time.
-// Need to find the write API
 
-// resource alertsManagementProvider 'Microsoft.Resources/providers@2024-08-01' = {
-//   name: 'Microsoft.AlertsManagement'
-// }
+// Do we need to register Microsoft.AlertsManagement provider?
+// Need to find the correct API
 
-// Create main resource group for all deployed resources
+
+// Create resource group
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: rgName
   location: location
+}
+
+
+// Create security group on first run
+module securityGroupDeploy './modules/securitygroup.template.bicep' = if (firstDeployment) {
+  scope: rg
+  name: 'securitygroup${deploymentTimestamp}'
+  params: {
+    groupName : 'CF.CumulusAdmins'
+  }
 }
 
 // Base resources
@@ -179,13 +188,14 @@ module networkingDeploy './modules/networking.template.bicep' = if (deployNetwor
   params: {
     namePrefix: namePrefix
     nameSuffix: nameSuffix
+    environment: envName
   }
   dependsOn: [
     keyVaultDeploy
   ]
 }
 
-// // Datafactory Resources
+// Datafactory Resources
 module dataFactoryDeployOrchestrator './modules/datafactory.template.bicep' = if (deployADF) {
   scope: rg
   name: 'datafactory-orchestrator${deploymentTimestamp}'
@@ -253,7 +263,7 @@ module databricksPatDeploy './modules/databrickspat.template.bicep' = if (deploy
   scope: rg
   name: 'databrickspat${deploymentTimestamp}'
   params: {
-    adb_workspace_managed_identity_id: databricksWorkspaceDeploy.outputs.databricks_managed_identity.id
+    adb_workspace_managed_identity: databricksWorkspaceDeploy.outputs.databricks_managed_identity
     adb_workspace_id: databricksWorkspaceDeploy.outputs.databricks_workspace.id
     adb_workspace_url: databricksWorkspaceDeploy.outputs.databricks_workspace.properties.workspaceUrl
     adb_secret_scope_name: 'CumulusScope01'
@@ -270,10 +280,10 @@ module databricksClusterDeploy './modules/databrickscluster.template.bicep' = if
   scope: rg
   name: 'databrickscluster${deploymentTimestamp}'
   params: {
-    adb_cluster_name: 'production-cluster'
+    adb_cluster_name: 'cluster-01'
     adb_workspace_id: databricksWorkspaceDeploy.outputs.databricks_workspace.id
     adb_workspace_url: databricksWorkspaceDeploy.outputs.databricks_workspace.properties.workspaceUrl
-    adb_workspace_managed_identity_id: databricksWorkspaceDeploy.outputs.databricks_managed_identity.id
+    adb_workspace_managed_identity: databricksWorkspaceDeploy.outputs.databricks_managed_identity
     adb_secret_scope_name: 'CumulusScope01'
   }
   dependsOn: [
@@ -302,81 +312,84 @@ module virtualMachineDeploy './modules/virtualmachine.template.bicep' = if (depl
  * Note: firstDeployment parameter controls initial RBAC setup for function app
  */
 
-// module dataFactoryOrchestratorRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = if (deployADF) {
-//   scope: rg
-//   name: 'adf-orchestration-roleassignments${deploymentTimestamp}'
-//   params: {
-//     nameFactory: deployWorkers ? 'factory' : 'adf' // if workers adf is being setup we call this one factory, otherwise we call it adf
-//     namePrefix: namePrefix
-//     nameSuffix: nameSuffix
-//     nameStorage: datalakeName
-//     statusADB: deployADBWorkspace
-//     statusFunction: deployFunction
-//   }
-//   dependsOn: [
-//     keyVaultDeploy
-//     storageAccountDeploy
-//     dataFactoryDeployOrchestrator
-//     deploySQL ? sqlServerDeploy : null
-//     deployFunction ? functionAppDeploy : null
-//     deployADBWorkspace ? databricksWorkspaceDeploy : null
-//   ]
-// }
+module dataFactoryOrchestratorRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = if (deployADF && setRoleAssignments) {
+  scope: rg
+  name: 'adf-orchestration-roleassignments${deploymentTimestamp}'
+  params: {
+    nameFactory: deployWorkers ? 'factory' : 'adf' // if workers adf is being setup we call this one factory, otherwise we call it adf
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+    nameStorage: datalakeName
+    statusADB: deployADBWorkspace
+    statusFunction: deployFunction
+  }
+  dependsOn: [
+    keyVaultDeploy
+    storageAccountDeploy
+    dataFactoryDeployOrchestrator
+    deploySQL ? sqlServerDeploy : null
+    deployFunction ? functionAppDeploy : null
+    deployADBWorkspace ? databricksWorkspaceDeploy : null
+  ]
+}
 
-// module dataFactoryWorkersRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = if (deployWorkers) {
-//   scope: rg
-//   name: 'adf-workers-roleassignments${deploymentTimestamp}'
-//   params: {
-//     nameFactory: 'workers'
-//     namePrefix: namePrefix
-//     nameSuffix: nameSuffix
-//     nameStorage: datalakeName
-//     statusADB: deployADBWorkspace
-//     statusFunction: deployFunction
-//   }
-//   dependsOn: [
-//     keyVaultDeploy
-//     storageAccountDeploy
-//     dataFactoryDeployWorkers
-//     deploySQL ? sqlServerDeploy : null
-//     deployFunction ? functionAppDeploy : null
-//     deployADBWorkspace ? databricksWorkspaceDeploy : null
-//   ]
-// }
+module dataFactoryWorkersRoleAssignmentsDeploy './modules/roleassignments/datafactory.template.bicep' = if (deployWorkers && setRoleAssignments) {
+  scope: rg
+  name: 'adf-workers-roleassignments${deploymentTimestamp}'
+  params: {
+    nameFactory: 'workers'
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+    nameStorage: datalakeName
+    statusADB: deployADBWorkspace
+    statusFunction: deployFunction
+  }
+  dependsOn: [
+    keyVaultDeploy
+    storageAccountDeploy
+    dataFactoryDeployWorkers
+    deploySQL ? sqlServerDeploy : null
+    deployFunction ? functionAppDeploy : null
+    deployADBWorkspace ? databricksWorkspaceDeploy : null
+  ]
+}
 
-// module functionAppRoleAssignmentsDeploy './modules/roleassignments/functionapp.template.bicep' = if (deployFunction) {
-//   scope: rg
-//   name: 'functionapp-roleassignments${deploymentTimestamp}'
-//   params: {
-//     namePrefix: namePrefix
-//     nameSuffix: nameSuffix
-//     firstDeployment: firstDeployment
-//     deployWorkers: deployWorkers
-//   }
-//   dependsOn: [
-//     keyVaultDeploy
-//     storageAccountDeploy
-//     dataFactoryDeployOrchestrator
-//     deploySQL ? sqlServerDeploy : null
-//     deployFunction ? functionAppDeploy : null
-//     deployADBWorkspace ? databricksWorkspaceDeploy : null
-//     deployWorkers ? dataFactoryDeployWorkers : null
-//   ]
-// }
+module functionAppRoleAssignmentsDeploy './modules/roleassignments/functionapp.template.bicep' = if (deployFunction && setRoleAssignments) {
+  scope: rg
+  name: 'functionapp-roleassignments${deploymentTimestamp}'
+  params: {
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+    firstDeployment: firstDeployment
+    deployWorkers: deployWorkers
+  }
+  dependsOn: [
+    keyVaultDeploy
+    storageAccountDeploy
+    dataFactoryDeployOrchestrator
+    deploySQL ? sqlServerDeploy : null
+    deployFunction ? functionAppDeploy : null
+    deployADBWorkspace ? databricksWorkspaceDeploy : null
+    deployWorkers ? dataFactoryDeployWorkers : null
+  ]
+}
 
 
 
-// module dataBricksRoleAssignmentsDeploy './modules/roleassignments/databricks.template.bicep' = if (deployADBWorkspace) {
-//   scope: rg
-//   name: 'databricks-roleassignments${deploymentTimestamp}'
-//   params: {
-//     adb_workspace_managed_identity_id: databricksWorkspaceDeploy.outputs.databricks_managed_identity
-//     adb_workspace_name: databricksWorkspaceDeploy.name
-//     dataFactoryName: dataFactoryDeployOrchestrator.name
-//   }
-//   dependsOn: [
-//     storageAccountDeploy
-//     databricksWorkspaceDeploy
-//     dataFactoryDeployOrchestrator
-//   ]
-// }
+module dataBricksRoleAssignmentsDeploy './modules/roleassignments/databricks.template.bicep' = if (deployADBWorkspace && setRoleAssignments) {
+  scope: rg
+  name: 'databricks-roleassignments${deploymentTimestamp}'
+  params: {
+    adb_workspace_managed_identity: databricksWorkspaceDeploy.outputs.databricks_managed_identity
+    adb_workspace_name: databricksWorkspaceDeploy.name
+    dataFactoryName: dataFactoryDeployOrchestrator.name
+    namePrefix: namePrefix
+    nameSuffix: nameSuffix
+    nameStorage: datalakeName
+  }
+  dependsOn: [
+    storageAccountDeploy
+    databricksWorkspaceDeploy
+    dataFactoryDeployOrchestrator
+  ]
+}

@@ -26,7 +26,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' existing = {
 
 // Assign Key Vault Reader role to the Function App's managed identity
 // Only executed during first deployment (firstDeployment == true)
-resource keyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (firstDeployment == true) {
+resource keyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (firstDeployment) {
   name: guid(functionApp.id, keyVault.id, 'Reader', timestamp)
   scope: keyVault
   properties: {
@@ -42,7 +42,7 @@ resource dataFactory 'Microsoft.DataFactory/factories@2018-06-01' existing = {
 
 // Assign Data Factory Contributor role to the Function App's managed identity
 // Only executed during first deployment (firstDeployment == true)
-resource dataFactoryRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (firstDeployment == true) {
+resource dataFactoryRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (firstDeployment) {
   name: guid(functionApp.id, dataFactory.id, 'Contributor', timestamp)
   scope: dataFactory
   properties: {

@@ -12,7 +12,7 @@ var servername = '${namePrefix}sql${nameSuffix}'
 var specialChars = '!@#$%^&*' // Special characters to be used in the password
 var sqlPassword = '${take(randomGuid, 16)}${take(specialChars, 2)}1A'
 
-// Create the resource group
+// Create the SQL Server
 resource sqlServer 'Microsoft.Sql/servers@2023-05-01-preview' = {
   name: servername
   location: location
@@ -51,7 +51,7 @@ module sqlServerkeyVault 'secret.template.bicep' = if (sqlServerVault.name != nu
   }
 }
 
-// Create database resources
+// Create database
 resource rDatabase 'Microsoft.Sql/servers/databases@2023-05-01-preview' = {
   name: databaseName
   parent: sqlServer

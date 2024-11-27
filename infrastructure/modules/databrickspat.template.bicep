@@ -12,7 +12,9 @@
 param location string = resourceGroup().location
 
 // Managed identity that will be used to execute the deployment scripts
-param adb_workspace_managed_identity_id string
+param adb_workspace_managed_identity object
+
+var adb_workspace_managed_identity_id = adb_workspace_managed_identity.properties.principalId
 
 // Databricks workspace details
 param adb_workspace_url string 
